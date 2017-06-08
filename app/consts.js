@@ -24,12 +24,12 @@ const consts = {
 function skinLoader(load) {
     for (let i = 0; i < skin.dirs.length; i++) {
         let dir = skin.dirs[i];
-        load.image('key_up/' + i, 'StepOsu/arrows/key_' + dir + '.png');
-        load.image('key_down/' + i, 'StepOsu/arrows/key_' + dir + 'D.png');
-        load.image('note/' + i, 'StepOsu/arrownote/' + dir + '.png');
+        load.image('key_up/' + i, 'skin/arrows/key_' + dir + '.png');
+        load.image('key_down/' + i, 'skin/arrows/key_' + dir + 'D.png');
+        load.image('note/' + i, 'skin/arrownote/' + dir + '.png');
     }
     for (let i = 0; i < skin.timingNames.length; i++) {
-        load.image('hit/' + i, 'StepOsu/mania-hit' + skin.timingNames[i] + '.png');
+        load.image('hit/' + i, 'skin/mania-hit' + skin.timingNames[i] + '.png');
     }
 }
 
