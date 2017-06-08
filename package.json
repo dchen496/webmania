@@ -1,0 +1,18 @@
+{
+  "name": "webmania",
+  "version": "1.0.0",
+  "description": "HTML5 and Javascript vertical scrolling rhythm game.",
+  "main": "index.js",
+  "author": "Douglas Chen",
+  "license": "MIT",
+  "dependencies": {
+    "babel-core": "^6.24.1",
+    "babel-loader": "^7.0.0",
+    "babel-preset-env": "^1.5.2",
+    "p2": "^0.7.1",
+    "phaser-ce": "^2.8.0",
+    "pixi.js": "^4.5.2",
+    "script-loader": "^0.7.0",
+    "webpack": "^2.6.1"
+  }
+}
