@@ -24,12 +24,20 @@ class GameState {
         this.hitObjectsByColumn = [];
         this.curObjectByColumn = [];
         this.visibleHit = null;
+        this.visibleHitTween = null;
+
+        this.accScore = 0;
+        this.maxAccScore = 0;
+        this.accText = null;
+
+        this.combo = 0;
+        this.comboText = null;
     }
 
     preload() {
         let game = this.game;
         let load = game.load;
-        load.text('beatmap', 'songs/shelter/normal.osu');
+        load.text('beatmap', 'songs/shelter/loneliness.osu');
         load.audio('audio', 'songs/shelter/shelter.mp3');
         load.image('background', 'songs/shelter/normal.jpg');
         consts.skin.loader(load);
@@ -40,6 +48,7 @@ class GameState {
             key.onDown.add((sig) => this.handleKey(key, j, true));
             key.onUp.add((sig) => this.handleKey(key, j, false));
         }
+        game.time.advancedTiming = true;
     }
 
     /** world looks like this:
@@ -96,8 +105,8 @@ class GameState {
         let beatmap = parseBeatmap(this.game.cache.getText('beatmap'));
         let timingPoints = beatmap.TimingPoints;
         let hitObjects = beatmap.HitObjects;
-        // XXX: this is not using the right length
-        this.timingIndex = makeTimingIndex(timingPoints, hitObjects[hitObjects.length - 1]);
+        // XXX: this is not using the right length!! note that it is wrong with hold notes
+        this.timingIndex = makeTimingIndex(timingPoints, hitObjects[hitObjects.length - 1].Time);
         let {start, end} = computeNotePositions(hitObjects, this.timingIndex);
         let maxY = (consts.leadTime + start[start.length - 1] + consts.trailTime) * consts.baseScrollSpeed + consts.skin.judgementHeight;
         let firstNoteY = (start[start.length - 1] + consts.trailTime) * consts.baseScrollSpeed;
@@ -112,6 +121,7 @@ class GameState {
                 note.width = consts.keyWidth;
                 note.height = consts.noteHeight;
                 note.anchor.y = 1;
+                obj.note = note;
                 col.push(obj);
             }
             this.hitObjectsByColumn.push(col);
@@ -124,14 +134,30 @@ class GameState {
 
     createScoreboard() {
         for (let i = 0; i < this.scoreTimings.length; i++) {
-            let hit = this.game.add.image(consts.leftMargin + consts.keyWidth * consts.keys * 0.5, consts.height / 2, 'hit/' + i);
+            let hit = this.game.add.image(consts.leftMargin + consts.keyWidth * consts.keys * 0.5, consts.height / 2 + 40, 'hit/' + i);
             hit.anchor.x = 0.5;
             hit.anchor.y = 0.5;
             hit.fixedToCamera = true;
             hit.visible = false;
             this.hits.push(hit);
         }
-        console.log(this.hits);
+
+        var style = { font: "50px Consolas", fill: "#ffffff", align: "center" };
+        this.accText = this.game.add.text(consts.width - 30, 30, '100.00%', style);
+        this.accText.anchor.x = 1.0;
+        this.accText.fixedToCamera = true;
+        this.accText.shadowFill = true;
+        this.accText.shadowBlur = 10;
+        this.accText.shadowColor = 'rgba(0, 0, 0, 1)';
+
+        style = { font: "70px Consolas", fill: "#cccccc", align: "center" };
+        this.comboText = this.game.add.text(consts.leftMargin + consts.keyWidth * consts.keys * 0.5, consts.height / 2 - 40, '0', style);
+        this.comboText.anchor.x = 0.5;
+        this.comboText.anchor.y = 0.5;
+        this.comboText.fixedToCamera = true;
+        this.comboText.shadowFill = true;
+        this.comboText.shadowBlur = 10;
+        this.comboText.shadowColor = 'rgba(0, 0, 0, 1)';
     }
 
     create() {
@@ -142,6 +168,8 @@ class GameState {
         this.createScoreboard();
 
         this.game.onPause.add(() => this.audio.stop());
+
+        this.xx = 0;
     }
 
     update() {
@@ -159,6 +187,12 @@ class GameState {
         }
 
         this.checkLateMisses();
+
+        if (this.xx >= 60) {
+            this.xx = 0;
+            console.log(game.time.fps);
+        }
+        this.xx++;
     }
 
     handleKey(key, idx, down) {
@@ -176,25 +210,26 @@ class GameState {
     }
 
     score(idx, down) {
+        if (!this.audio.isPlaying || this.curObjectByColumn[idx] >= this.hitObjectsByColumn[idx].length)
+            return;
         let time = this.audioStartTime + this.audio.currentTime;
         this.checkLateMissColumn(idx, time);
-        let objTime = this.hitObjectsByColumn[idx][this.curObjectByColumn[idx]].Time;
+        let obj = this.hitObjectsByColumn[idx][this.curObjectByColumn[idx]];
+        let objTime = obj.Time;
         let tm = this.scoreTimings;
         if (time < objTime - tm[tm.length - 1])
             return;
         for (let i = tm.length - 1; i > 0; i--) {
             if (time < objTime - tm[i - 1]) {
-                console.log(time - objTime, consts.skin.timingNames[i], idx);
                 this.curObjectByColumn[idx]++;
-                this.updateHit(i);
+                this.updateHit(obj, i);
                 return;
             }
         }
         for (let i = 0; i < tm.length - 1; i++) {
             if (time <= objTime + tm[i]) {
-                console.log(time - objTime, consts.skin.timingNames[i], idx);
                 this.curObjectByColumn[idx]++;
-                this.updateHit(i);
+                this.updateHit(obj, i);
                 return;
             }
         }
@@ -208,23 +243,45 @@ class GameState {
 
     checkLateMissColumn(i, time) {
         let lateMiss = this.scoreTimings[this.scoreTimings.length - 2];
-        let hit = false;
         while (this.curObjectByColumn[i] < this.hitObjectsByColumn[i].length &&
             time > this.hitObjectsByColumn[i][this.curObjectByColumn[i]].Time + lateMiss) {
-            console.log("miss", i);
+            this.updateHit(this.hitObjectsByColumn[i][this.curObjectByColumn[i]], this.scoreTimings.length - 1);
             this.curObjectByColumn[i]++;
-            hit = true;
         }
-        if (hit)
-            this.updateHit(this.scoreTimings.length - 1);
     }
 
-    updateHit(hitIdx) {
-        if (this.visibleHit != null)
+    updateHit(obj, hitIdx) {
+        if (hitIdx == this.scoreTimings.length - 1) {
+            // miss
+            this.combo = 0;
+        } else {
+            // hit
+            obj.note.visible = false;
+            this.combo++;
+        }
+        if (this.visibleHit != null) {
             this.visibleHit.visible = false;
-        console.log("hit", hitIdx);
+            this.visibleHitTween.stop();
+            this.visibleHit = null;
+            this.visibleHitTween = null;
+        }
         this.visibleHit = this.hits[hitIdx];
+        this.visibleHit.scale.x = 1.0;
+        this.visibleHit.scale.y = 1.0;
         this.visibleHit.visible = true;
+        this.visibleHitTween = this.game.add.tween(this.visibleHit.scale)
+            .to({x: consts.hitTweenScaleMax, y: consts.hitTweenScaleMax}, consts.hitTweenUpTime)
+            .to({x: consts.hitTweenScaleMin, y: consts.hitTweenScaleMin}, consts.hitTweenDownTime);
+        this.visibleHitTween.start();
+        this.visibleHitTween.onComplete.add(() => {
+            this.visibleHit.visible = false;
+            this.visibleHit = null;
+            this.visibleHitTween = null;
+        });
+        this.accScore += consts.timingAccPoints[hitIdx];
+        this.maxAccScore += consts.timingAccPoints[0];
+        this.accText.text = Number(Math.round(this.accScore / this.maxAccScore * 10000) / 100).toFixed(2) + '%';
+        this.comboText.text = String(this.combo);
     }
 
     keyX(idx) {

@@ -15,9 +15,14 @@ const consts = {
     keyMap: ['D', 'F', 'J', 'K'],
     timingBase: [16, 64, 97, 127, 151, 188], // first is perfect, last is early miss
     timingDifficulty: 3,
+    timingAccPoints: [300, 300, 200, 100, 50, 0],
     leadTime: 2000,
     trailTime: 2000,
     baseScrollSpeed: 1.5, // in pixels per millisecond
+    hitTweenScaleMax: 1.05,
+    hitTweenScaleMin: 0.9,
+    hitTweenUpTime: 50,
+    hitTweenDownTime: 150,
     skin: skin
 };
 
